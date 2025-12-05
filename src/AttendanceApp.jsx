@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-// --- Inline Icons (No external dependencies needed) ---
+// --- Inline Icons ---
 const Icon = ({ d, className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{d}</svg>
 );
@@ -30,13 +30,14 @@ const AttendanceApp = () => {
     const [newHoliday, setNewHoliday] = useState('');
     const [newLeave, setNewLeave] = useState('');
     
+    // Keep a clean initial state
     const [subjects, setSubjects] = useState([
-        { id: 1, name: 'Advanced Mathematics', delivered: 20, attended: 15, dl: 0, schedule: [0, 1, 0, 1, 0, 1, 0] }
+        { id: 1, name: 'Example Subject', delivered: 20, attended: 15, dl: 0, schedule: [0, 1, 0, 1, 0, 1, 0] }
     ]);
 
     // --- Persistence ---
     useEffect(() => {
-        const saved = localStorage.getItem('attendanceApp_light_v2');
+        const saved = localStorage.getItem('attendanceApp_light_v3_fixed');
         if (saved) {
             try {
                 const data = JSON.parse(saved);
@@ -50,7 +51,7 @@ const AttendanceApp = () => {
     }, []);
 
     useEffect(() => {
-        localStorage.setItem('attendanceApp_light_v2', JSON.stringify({
+        localStorage.setItem('attendanceApp_light_v3_fixed', JSON.stringify({
             targetPercentage, semesterEndDate, holidays, leaves, subjects
         }));
     }, [targetPercentage, semesterEndDate, holidays, leaves, subjects]);
@@ -77,6 +78,7 @@ const AttendanceApp = () => {
         let currentDay = new Date(today);
         currentDay.setDate(currentDay.getDate() + 1);
 
+        // 1. Generate ALL future individual class instances
         while (currentDay <= end) {
             const dateString = currentDay.toISOString().split('T')[0];
             const dayOfWeek = currentDay.getDay(); 
@@ -85,6 +87,7 @@ const AttendanceApp = () => {
 
             if (!isHoliday && !isLeave) {
                 const classesCount = (subject.schedule[dayOfWeek] || 0);
+                // If there are 2 classes on Monday, push TWO entries for that date
                 for (let i = 0; i < classesCount; i++) {
                     futureDates.push(new Date(currentDay));
                 }
@@ -100,10 +103,25 @@ const AttendanceApp = () => {
         const requiredTotal = Math.ceil((targetPercentage / 100) * finalTotal);
         const needed = requiredTotal - currentEffective;
 
+        // 2. Recommendation Logic (Corrected)
         let recommendedDates = [];
         if (needed > 0 && needed <= futureClassesCount) {
-            const uniqueFutureDates = [...new Set(futureDates.map(d => d.toISOString().split('T')[0]))].map(d => new Date(d));
-            recommendedDates = uniqueFutureDates.slice(0, Math.ceil(needed));
+            let classesAccumulated = 0;
+            const seenDates = new Set();
+            
+            for (const dateObj of futureDates) {
+                if (classesAccumulated >= needed) break;
+                
+                // Accumulate class count
+                classesAccumulated++;
+                
+                // Only add the date to the display list if we haven't added it yet
+                const dateStr = dateObj.toISOString().split('T')[0];
+                if (!seenDates.has(dateStr)) {
+                    seenDates.add(dateStr);
+                    recommendedDates.push(dateObj);
+                }
+            }
         }
 
         return {
