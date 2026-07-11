@@ -96,6 +96,29 @@ const AttendanceApp = () => {
         setSubjects(subjects.map(s => s.id === id ? { ...s, [field]: val } : s));
     };
 
+    // Guard the count inputs so a student can't create impossible data:
+    // no negatives, and attended/dl can never exceed the classes delivered.
+    const updateSubjectCount = (id, field, raw) => {
+        setSubjects(subjects.map(s => {
+            if (s.id !== id) return s;
+            if (raw === '') return { ...s, [field]: '' };
+            let n = Math.max(0, Math.floor(Number(raw) || 0));
+            const next = { ...s, [field]: n };
+            const delivered = Number(next.delivered) || 0;
+            // attended + dl together cannot exceed delivered
+            if (field === 'delivered') {
+                next.attended = Math.min(Number(next.attended) || 0, n);
+                next.dl = Math.min(Number(next.dl) || 0, Math.max(0, n - (Number(next.attended) || 0)));
+            } else if (field === 'attended') {
+                next.attended = Math.min(n, delivered);
+                next.dl = Math.min(Number(next.dl) || 0, Math.max(0, delivered - next.attended));
+            } else if (field === 'dl') {
+                next.dl = Math.min(n, Math.max(0, delivered - (Number(next.attended) || 0)));
+            }
+            return next;
+        }));
+    };
+
     const addNewSubject = () => {
         setSubjects([...subjects, {
             id: Date.now(),
@@ -278,17 +301,17 @@ const AttendanceApp = () => {
                                 <div className="grid grid-cols-3 gap-3">
                                     <div className="bg-slate-50 rounded-lg p-2 border border-slate-200 text-center min-w-[80px]">
                                         <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">Delivered</div>
-                                        <input type="number" value={sub.delivered || ''} onChange={e => updateSubjectField(sub.id, 'delivered', e.target.value)} 
+                                        <input type="number" min="0" value={sub.delivered || ''} onChange={e => updateSubjectCount(sub.id, 'delivered', e.target.value)}
                                             className="w-full bg-transparent text-center font-mono font-bold text-slate-700 outline-none" placeholder="0" />
                                     </div>
                                     <div className="bg-slate-50 rounded-lg p-2 border border-slate-200 text-center min-w-[80px]">
                                         <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">Attended</div>
-                                        <input type="number" value={sub.attended || ''} onChange={e => updateSubjectField(sub.id, 'attended', e.target.value)} 
+                                        <input type="number" min="0" value={sub.attended || ''} onChange={e => updateSubjectCount(sub.id, 'attended', e.target.value)}
                                             className="w-full bg-transparent text-center font-mono font-bold text-slate-700 outline-none" placeholder="0" />
                                     </div>
                                     <div className="bg-slate-50 rounded-lg p-2 border border-slate-200 text-center min-w-[80px]">
                                         <div className="text-[10px] text-slate-400 uppercase font-bold mb-1">DL / ML</div>
-                                        <input type="number" value={sub.dl || ''} onChange={e => updateSubjectField(sub.id, 'dl', e.target.value)} 
+                                        <input type="number" min="0" value={sub.dl || ''} onChange={e => updateSubjectCount(sub.id, 'dl', e.target.value)}
                                             className="w-full bg-transparent text-center font-mono font-bold text-slate-700 outline-none" placeholder="0" />
                                     </div>
                                 </div>
