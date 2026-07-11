@@ -274,9 +274,25 @@ const AttendanceApp = () => {
                                 </div>
                             </div>
 
+                            {/* Hero numbers — the three things a student actually wants */}
+                            <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
+                                <div className="p-5 text-center">
+                                    <div className="text-3xl md:text-4xl font-bold text-slate-800 tabular-nums">{stats.future}</div>
+                                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mt-1">Classes left</div>
+                                </div>
+                                <div className="p-5 text-center">
+                                    <div className={`text-3xl md:text-4xl font-bold tabular-nums ${stats.canMiss > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>{stats.canMiss}</div>
+                                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mt-1">Can miss</div>
+                                </div>
+                                <div className="p-5 text-center">
+                                    <div className={`text-3xl md:text-4xl font-bold tabular-nums ${stats.status === 'impossible' ? 'text-rose-600' : stats.mustAttend > 0 ? 'text-amber-600' : 'text-slate-300'}`}>{stats.mustAttend}</div>
+                                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mt-1">Must attend</div>
+                                </div>
+                            </div>
+
                             {/* Action & Schedule Footer */}
                             <div className="grid grid-cols-1 md:grid-cols-2">
-                                
+
                                 {/* Status Message */}
                                 <div className={`p-6 flex flex-col justify-center ${statusConfig.bg}`}>
                                     <div className="flex items-center gap-3 mb-2">
