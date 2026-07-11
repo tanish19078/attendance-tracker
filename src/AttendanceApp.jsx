@@ -390,6 +390,20 @@ const AttendanceApp = () => {
                     );
                 })}
 
+                {/* Empty state */}
+                {subjects.length === 0 && (
+                    <div className="glass-card rounded-2xl p-10 text-center">
+                        <div className="mx-auto w-12 h-12 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mb-4">
+                            <Icons.Book className="w-6 h-6" />
+                        </div>
+                        <h2 className="text-lg font-bold text-slate-800">No subjects yet</h2>
+                        <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
+                            Add a subject, enter how many classes were held and how many you attended,
+                            then set its weekly timetable. You'll instantly see how many you can miss.
+                        </p>
+                    </div>
+                )}
+
                 {/* Add Button */}
                 <button onClick={addNewSubject} className="w-full py-6 border-2 border-dashed border-slate-300 rounded-xl text-slate-400 font-bold uppercase tracking-wider hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 group">
                     <Icons.Plus className="w-5 h-5 group-hover:scale-110 transition-transform" /> Add Subject
