@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { computeSubjectStats } from './lib/attendance';
+import { computeSubjectStats, computeOverall } from './lib/attendance';
 
 // --- Inline Icons ---
 const Icon = ({ d, className }) => (
@@ -73,6 +73,7 @@ const AttendanceApp = () => {
     const projectionOpts = { targetPercentage, semesterEndDate, holidays, leaves };
     const calculateProjections = (subject) =>
         computeSubjectStats(subject, projectionOpts);
+    const overall = computeOverall(subjects, projectionOpts);
 
     const addDate = (list, setList, val, setVal) => {
         if (val && !list.includes(val)) {
@@ -191,6 +192,25 @@ const AttendanceApp = () => {
                     )}
                 </div>
             </div>
+
+            {/* --- Overall standing across all subjects --- */}
+            {subjects.length > 0 && overall.delivered > 0 && (
+                <div className="max-w-5xl mx-auto mb-6">
+                    <div className="glass-card rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-baseline gap-3">
+                            <span className={`text-4xl font-bold tabular-nums ${overall.currentPct >= targetPercentage ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                {overall.currentPct.toFixed(1)}%
+                            </span>
+                            <span className="text-sm font-medium text-slate-500">overall right now</span>
+                        </div>
+                        <div className="text-sm text-slate-500 flex flex-wrap gap-x-5 gap-y-1 justify-center">
+                            <span><span className="font-bold text-slate-700 tabular-nums">{overall.present}</span> / {overall.delivered} attended</span>
+                            <span><span className="font-bold text-slate-700 tabular-nums">{overall.future}</span> classes left</span>
+                            <span>if you attend them all: <span className="font-bold text-slate-700 tabular-nums">{overall.projectedPct.toFixed(1)}%</span></span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* --- Subjects Grid --- */}
             <div className="max-w-5xl mx-auto space-y-6">
