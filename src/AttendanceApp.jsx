@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { computeSubjectStats } from './lib/attendance';
 
 // --- Inline Icons ---
 const Icon = ({ d, className }) => (
@@ -68,72 +69,10 @@ const AttendanceApp = () => {
         }
     };
 
-    const calculateProjections = (subject) => {
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        const end = new Date(semesterEndDate);
-        end.setHours(0,0,0,0);
-        
-        let futureDates = []; 
-        let currentDay = new Date(today);
-        currentDay.setDate(currentDay.getDate() + 1);
-
-        // 1. Generate ALL future individual class instances
-        while (currentDay <= end) {
-            const dateString = currentDay.toISOString().split('T')[0];
-            const dayOfWeek = currentDay.getDay(); 
-            const isHoliday = holidays.includes(dateString);
-            const isLeave = leaves.includes(dateString);
-
-            if (!isHoliday && !isLeave) {
-                const classesCount = (subject.schedule[dayOfWeek] || 0);
-                // If there are 2 classes on Monday, push TWO entries for that date
-                for (let i = 0; i < classesCount; i++) {
-                    futureDates.push(new Date(currentDay));
-                }
-            }
-            currentDay.setDate(currentDay.getDate() + 1);
-        }
-
-        const currentEffective = Number(subject.attended) + Number(subject.dl);
-        const totalDelivered = Number(subject.delivered);
-        const futureClassesCount = futureDates.length;
-        const finalTotal = totalDelivered + futureClassesCount;
-        
-        const requiredTotal = Math.ceil((targetPercentage / 100) * finalTotal);
-        const needed = requiredTotal - currentEffective;
-
-        // 2. Recommendation Logic (Corrected)
-        let recommendedDates = [];
-        if (needed > 0 && needed <= futureClassesCount) {
-            let classesAccumulated = 0;
-            const seenDates = new Set();
-            
-            for (const dateObj of futureDates) {
-                if (classesAccumulated >= needed) break;
-                
-                // Accumulate class count
-                classesAccumulated++;
-                
-                // Only add the date to the display list if we haven't added it yet
-                const dateStr = dateObj.toISOString().split('T')[0];
-                if (!seenDates.has(dateStr)) {
-                    seenDates.add(dateStr);
-                    recommendedDates.push(dateObj);
-                }
-            }
-        }
-
-        return {
-            currentPct: totalDelivered === 0 ? 0 : ((currentEffective / totalDelivered) * 100).toFixed(1),
-            futureClasses: futureClassesCount,
-            finalTotal,
-            needed,
-            requiredTotal,
-            currentEffective,
-            recommendedDates
-        };
-    };
+    // All projection math lives in the tested, timezone-safe module.
+    const projectionOpts = { targetPercentage, semesterEndDate, holidays, leaves };
+    const calculateProjections = (subject) =>
+        computeSubjectStats(subject, projectionOpts);
 
     const addDate = (list, setList, val, setVal) => {
         if (val && !list.includes(val)) {
@@ -258,44 +197,37 @@ const AttendanceApp = () => {
                 {subjects.map(sub => {
                     const stats = calculateProjections(sub);
                     
-                    // Visual States
+                    // Visual states driven by the module's status field.
                     let statusConfig = {
                         color: 'border-l-4 border-l-slate-400',
                         bg: 'bg-slate-50',
                         text: 'text-slate-500',
-                        message: 'Calculating...',
+                        message: 'Add class counts to see your status.',
                         icon: <Icons.Target className="w-5 h-5" />
                     };
 
-                    if (stats.needed <= 0) {
-                        // SAFE
-                        const surplus = (stats.currentEffective + stats.futureClasses) - stats.requiredTotal;
-                        const safeBunks = Math.min(surplus, stats.futureClasses);
+                    if (stats.status === 'safe') {
                         statusConfig = {
                             color: 'border-l-4 border-l-emerald-500',
                             bg: 'bg-emerald-50',
                             text: 'text-emerald-700',
-                            message: `Safe Zone. You can bunk ${safeBunks} more classes.`,
+                            message: `Safe Zone. You can miss ${stats.canMiss} more of the ${stats.future} remaining classes.`,
                             icon: <Icons.CheckCircle className="w-5 h-5 text-emerald-600" />
                         };
-                    } else if (stats.needed > stats.futureClasses) {
-                        // IMPOSSIBLE
-                        const maxPct = stats.finalTotal === 0 ? 0 : (((stats.currentEffective + stats.futureClasses) / stats.finalTotal) * 100).toFixed(1);
+                    } else if (stats.status === 'impossible') {
                         statusConfig = {
                             color: 'border-l-4 border-l-rose-500',
                             bg: 'bg-rose-50',
                             text: 'text-rose-700',
-                            message: `Goal Unreachable. Max possible: ${maxPct}%`,
+                            message: `Goal Unreachable. Best you can reach is ${stats.maxPossiblePct.toFixed(1)}%.`,
                             icon: <Icons.AlertTriangle className="w-5 h-5 text-rose-600" />
                         };
-                    } else {
-                        // WARNING
-                        const canBunk = stats.futureClasses - stats.needed;
+                    } else if (stats.status === 'warning') {
                         statusConfig = {
                             color: 'border-l-4 border-l-amber-500',
                             bg: 'bg-amber-50',
                             text: 'text-amber-700',
-                            message: `Action Required. Attend ${stats.needed} of next ${stats.futureClasses}.`,
+                            message: `Attend ${stats.mustAttend} of the next ${stats.future} classes to stay on target.`,
                             icon: <Icons.Zap className="w-5 h-5 text-amber-600" />
                         };
                     }
@@ -313,11 +245,11 @@ const AttendanceApp = () => {
                                         placeholder="Subject Name" 
                                     />
                                     <div className="flex items-center gap-3">
-                                        <div className={`px-2 py-1 rounded text-xs font-bold ${Number(stats.currentPct) >= targetPercentage ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                                            {stats.currentPct}% Current
+                                        <div className={`px-2 py-1 rounded text-xs font-bold ${stats.currentPct >= targetPercentage ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                            {stats.currentPct.toFixed(1)}% Current
                                         </div>
                                         <div className="text-xs text-slate-400 font-medium">
-                                            {stats.futureClasses} sessions remaining
+                                            {stats.future} sessions remaining
                                         </div>
                                     </div>
                                 </div>
@@ -353,7 +285,7 @@ const AttendanceApp = () => {
                                     </div>
                                     
                                     {/* Recommendations */}
-                                    {stats.needed > 0 && stats.recommendedDates.length > 0 && (
+                                    {stats.status === 'warning' && stats.recommendedDates.length > 0 && (
                                         <div className="mt-2">
                                             <div className="text-[10px] text-slate-500 uppercase font-bold mb-2">Upcoming Required Dates:</div>
                                             <div className="flex flex-wrap gap-1.5">
